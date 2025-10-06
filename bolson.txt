@@ -196,26 +196,6 @@
 
     <div class="container">
       <img src="plan.PNG" alt="Base Plan" class="base">
-<!-- 🟨 Хяналтын хуудасны hotspot -->
-<div class="hotspot" 
-     style="top:525px; left:20px; width:360px; height:45px; 
-            background:rgba(0,51,102,0.9); color:#fff; 
-            display:flex; align-items:center; justify-content:center; 
-            border-radius:8px; font-weight:bold; font-size:15px;
-            box-shadow:0 0 6px rgba(0,0,0,0.3); cursor:pointer;"
-     onclick="openPopup('popupChecklist')">
-  📋 Хяналтын хуудас
-</div>
-
-<!-- 🟩 Хяналтын хуудасны popup -->
-<div id="popupChecklist" class="popup" style="width:55%; left:22%; top:10px; border-color:#003366;">
-  <span class="close" onclick="closePopup('popupChecklist')">[x]</span>
-  <h3>Хяналтын хуудас</h3>
-  <div style="display:flex; justify-content:center; align-items:center; padding:10px;">
-    <img src="list.PNG"
-         style="max-width:100%; height:auto; border:2px solid #003366; border-radius:8px;">
-  </div>
-</div>
 
       <!-- Grid marker hotspot (approx layout) -->
       <div class="hotspot" style="left:115px; top:150px;" onclick="openPopup('popup1')"></div>
