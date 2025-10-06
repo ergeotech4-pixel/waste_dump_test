@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8">
+  <title>UHG Waste Dump Inspection — 2025.10.06</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      background: #f4f6f8;
+    }
+    .wrapper {
+      width: 1000px;
+      background: #fff;
+      border: 3px solid #003366;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      margin-top: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(90deg, #e6f0ff, #f7fbff);
+      border-bottom: 4px solid #003366;
+      padding: 6px 18px;
+      border-radius: 6px 6px 0 0;
+    }
+    header img { height: 35px; }
+    header h1 {
+      font-size: 20px;
+      color: #003366;
+      text-align: center;
+      flex-grow: 1;
+      margin: 0 10px;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+
+    .container { position: relative; display: inline-block; width: 100%; }
+    .base { width: 100%; border-top: 3px solid #003366; }
+
+    .hotspot {
+      position: absolute;
+      width: 60px; height: 60px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .popup {
+      position: absolute; left: 0; top: 10px;
+      width: 100%;
+      background: #fff;
+      padding: 10px;
+      border: 3px solid red;
+      box-shadow: 2px 2px 5px #aaa;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(30px);
+      transition: opacity .4s ease, transform .4s ease;
+    }
+    .popup.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+    .popup h3 {
+      font-size: 20px;
+      background: orange;
+      color: #000;
+      margin: -10px -10px 10px -10px;
+      padding: 6px 10px;
+    }
+    .close {
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      color: #000;
+      cursor: pointer;
+    }
+
+    /* 🟦 Тэмдэглэл */
+    .note-section {
+      background: #e8f3ff;
+      border: 1px solid #bcd6f7;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* 🟨 Зөвлөмж */
+    .recommend {
+      background: #fff9e6;
+      border: 1px solid #f0d878;
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .recommend ul { margin: 0; padding-left: 18px; }
+
+    .section-title { color: #003366; font-weight: bold; border-bottom: 1px solid #ccc; margin: 8px 0 6px; }
+    .ok { color: green; font-weight: bold; }
+    .notok { color: red; font-weight: bold; }
+
+    .cols { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .colL { flex: 1 1 38%; min-width: 300px; display: flex; justify-content: center; position: relative; }
+    .colR { flex: 1 1 60%; min-width: 420px; }
+
+    .colL img { width: 100%; border: 1px solid #ccc; border-radius: 6px; object-fit: contain; }
+
+    /* Marker */
+    .marker {
+      position: absolute;
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      border: 2px solid #003366;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #003366;
+      transition: 0.3s;
+    }
+    .marker.active {
+      background: red;
+      color: white;
+      border-color: darkred;
+      transform: scale(1.2);
+    }
+
+    .slides { position: relative; width: 100%; height: 360px; margin-top: 8px; }
+    .slide { display: none; }
+    .slide img {
+      width: 100%; height: 360px; object-fit: cover;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+    .nav {
+      position: absolute; top: 50%; transform: translateY(-50%);font-size: 36px;
+      padding: 10px 10px; background: rgba(0,0,0,.5); color: #fff;
+      font-weight: bold; cursor: pointer; user-select: none; border-radius: 3px;
+    }
+    .nav.prev { left: 0; } .nav.next { right: 0; }
+    .nav:hover { background: rgba(0,0,0,.8); }
+  </style>
+
+  <script>
+    function openPopup(id) {
+      document.querySelectorAll('.popup').forEach(p => p.classList.remove('show'));
+      document.getElementById(id).classList.add('show');
+      initSlides(id);
+    }
+    function closePopup(id) { document.getElementById(id).classList.remove('show'); }
+
+    const slideIndex = {};
+    function initSlides(popupId) {
+      const groups = new Set();
+      document.querySelectorAll(`#${popupId} .slide`).forEach(s => {
+        s.style.display = 'none';
+        s.classList.forEach(c => { if (c.startsWith('r')) groups.add(c); });
+      });
+      groups.forEach(g => {
+        slideIndex[g] = 1;
+        const gSlides = document.querySelectorAll(`#${popupId} .slide.${g}`);
+        if (gSlides.length) gSlides[0].style.display = 'block';
+      });
+      updateMarkers(popupId, 1);
+    }
+    function plusSlides(n, group, popupId) {
+      const gSlides = document.querySelectorAll(`#${popupId} .slide.${group}`);
+      if (!gSlides.length) return;
+      if (!slideIndex[group]) slideIndex[group] = 1;
+      slideIndex[group] += n;
+      if (slideIndex[group] > gSlides.length) slideIndex[group] = 1;
+      if (slideIndex[group] < 1) slideIndex[group] = gSlides.length;
+      gSlides.forEach(s => s.style.display = 'none');
+      gSlides[slideIndex[group]-1].style.display = 'block';
+      updateMarkers(popupId, slideIndex[group]);
+    }
+    function updateMarkers(popupId, index){
+      document.querySelectorAll(`#${popupId} .marker`).forEach((m,i)=>{
+        m.classList.toggle('active', i+1===index);
+      });
+    }
+  </script>
+</head>
+<body>
+  <div class="wrapper">
+    <header>
+      <img src="logo.png" alt="Company Logo">
+      <h1>Ухаахудаг уурхайн хаягдлын болон нүүрсний овоолгын төлөвлөгөөт үзлэг — 2025.10.06</h1>
+    </header>
+
+    <div class="container">
+      <img src="plan.PNG" alt="Base Plan" class="base">
+
+      <!-- Grid marker hotspot (approx layout) -->
+      <div class="hotspot" style="left:115px; top:150px;" onclick="openPopup('popup1')"></div>
+      <div class="hotspot" style="left:345px; top:150px;" onclick="openPopup('popup2')"></div>
+      <div class="hotspot" style="left:525px; top:150px;" onclick="openPopup('popup3')"></div>
+      <div class="hotspot" style="left:705px; top:150px;" onclick="openPopup('popup4')"></div>
+      <div class="hotspot" style="left:875px; top:150px;" onclick="openPopup('popup5')"></div>
+      <div class="hotspot" style="left:575px; top:600px;" onclick="openPopup('popup6')"></div>
+      <div class="hotspot" style="left:725px; top:575px;" onclick="openPopup('popup7')"></div>
+
+      <!-- ============ Popup Template (1–7) ============ -->
+      <!-- Popup 1 -->
+      <div id="popup1" class="popup">
+        <span class="close" onclick="closePopup('popup1')">[x]</span>
+        <h3>Маршрут 1</h3>
+        <div class="cols">
+          <div class="colL">
+            <img src="M1.PNG">
+            <div class="marker" style="left:12.9%; top:68.6%;">1</div>
+            <div class="marker" style="left:9%; top:21.6%;">2</div>
+            <div class="marker" style="left:42.4%; top:27.5%;">3</div>
+            <div class="marker" style="left:57.9%; top:65.4%;">4</div>
+          </div>
+          <div class="colR">
+            <div class="note-section">
+              <div class="section-title">Тэмдэглэл</div>
+              <p class="ok">✅ Хөмсөг стандартын дагуу хийгдсэн</p>
+              <p class="ok">✅ Хуучин цууралт тэлээгүй</p>
+              <p class="notok">❗ 61 м урт цууралт шинээр үүссэн</p>
+            </div>
+            <div class="recommend">
+              <div class="section-title">Зөвлөмж</div>
+<ul>
+  <li>Цууралт үүссэн хэсгүүдэд ажиллах бол 10м зайд буулгалт авч Дозероор түрж тэлэлтийг хийнэ.</li>
+  <li>Ирмэг дагуу үүссэн цууралт болон геотехникийн аюулуудад ямар нэгэн хариу арга хэмжээг авсан тохиолдолд фото зургаар баримтжуулан мэйл-р геотехникийн инженерт мэдэгдэнэ үү.</li>
+</ul>
+</div>
+            <div class="slides">
+              <div class="slide r1"><img src="1.1.JPG"></div>
+              <div class="slide r1"><img src="1.2.JPG"></div>
+              <div class="slide r1"><img src="1.3.JPG"></div>
+              <div class="slide r1"><img src="1.4.JPG"></div>
+              <div class="nav prev" onclick="plusSlides(-1,'r1','popup1')">&#10094;</div>
+              <div class="nav next" onclick="plusSlides(1,'r1','popup1')">&#10095;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup 2 -->
+      <div id="popup2" class="popup">
+        <span class="close" onclick="closePopup('popup2')">[x]</span>
+        <h3>Маршрут 2</h3>
+        <div class="cols">
+          <div class="colL">
+            <img src="M2.PNG">
+            <div class="marker" style="left:30%; top:30%;">1</div>
+            <div class="marker" style="left:50%; top:50%;">2</div>
+            <div class="marker" style="left:70%; top:65%;">3</div>
+          </div>
+          <div class="colR">
+            <div class="note-section">
+              <div class="section-title">Тэмдэглэл</div>
+              <p class="ok">✅ Хөмсөг стандартын дагуу хийгдсэн</p>
+              <p class="ok">✅ Хуучин цууралт тэлээгүй</p>
+              <p class="ok">✅ Шинээр цууралт үүсээгүй</p>
+            </div>
+            <div class="recommend">
+              <div class="section-title">Зөвлөмж</div>
+<ul>
+  <li>Цууралт үүссэн хэсгүүдэд ажиллах бол 10м зайд буулгалт авч Дозероор түрж тэлэлтийг хийнэ.</li>
+  <li>Ирмэг дагуу үүссэн цууралт болон геотехникийн аюулуудад ямар нэгэн хариу арга хэмжээг авсан тохиолдолд фото зургаар баримтжуулан мэйл-р геотехникийн инженерт мэдэгдэнэ үү.</li>
+</ul>
+</div>
+            <div class="slides">
+              <div class="slide r2"><img src="2.1.JPG"></div>
+              <div class="slide r2"><img src="2.2.JPG"></div>
+              <div class="slide r2"><img src="2.3.JPG"></div>
+              <div class="slide r2"><img src="2.4.JPG"></div>
+              <div class="nav prev" onclick="plusSlides(-1,'r2','popup2')">&#10094;</div>
+              <div class="nav next" onclick="plusSlides(1,'r2','popup2')">&#10095;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup 3 -->
+      <div id="popup3" class="popup">
+        <span class="close" onclick="closePopup('popup3')">[x]</span>
+        <h3>Маршрут 3</h3>
+        <div class="cols">
+          <div class="colL">
+            <img src="M3.PNG">
+            <div class="marker" style="left:40%; top:30%;">1</div>
+            <div class="marker" style="left:60%; top:55%;">2</div>
+            <div class="marker" style="left:70%; top:75%;">3</div>
+          </div>
+          <div class="colR">
+            <div class="note-section">
+              <div class="section-title">Тэмдэглэл</div>
+              <p class="ok">✅ Хөмсөг стандартын дагуу хийгдсэн</p>
+              <p class="ok">✅ Хуучин цууралт тэлээгүй</p>
+              <p class="ok">✅ Шинээр цууралт үүсээгүй</p>
+            </div>
+            <div class="recommend">
+              <div class="section-title">Зөвлөмж</div>
+<ul>
+  <li>Цууралт үүссэн хэсгүүдэд ажиллах бол 10м зайд буулгалт авч Дозероор түрж тэлэлтийг хийнэ.</li>
+  <li>Ирмэг дагуу үүссэн цууралт болон геотехникийн аюулуудад ямар нэгэн хариу арга хэмжээг авсан тохиолдолд фото зургаар баримтжуулан мэйл-р геотехникийн инженерт мэдэгдэнэ үү.</li>
+</ul>
+</div>
+            <div class="slides">
+              <div class="slide r3"><img src="3.1.JPG"></div>
+              <div class="slide r3"><img src="3.2.JPG"></div>
+              <div class="slide r3"><img src="3.3.JPG"></div>
+              <div class="slide r3"><img src="3.4.JPG"></div>
+              <div class="nav prev" onclick="plusSlides(-1,'r3','popup3')">&#10094;</div>
+              <div class="nav next" onclick="plusSlides(1,'r3','popup3')">&#10095;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup 4 -->
+      <div id="popup4" class="popup">
+        <span class="close" onclick="closePopup('popup4')">[x]</span>
+        <h3>Маршрут 4</h3>
+        <div class="cols">
+          <div class="colL"><img src="M4.PNG">
+            <div class="marker" style="left:50%; top:30%;">1</div>
+            <div class="marker" style="left:60%; top:60%;">2</div>
+          </div>
+          <div class="colR">
+            <div class="note-section">
+              <div class="section-title">Тэмдэглэл</div>
+              <p class="ok">✅ Хөмсөг стандартын дагуу хийгдсэн</p>
+              <p class="ok">✅ Хуучин цууралт тэлээгүй</p>
+              <p class="ok">✅ Шинээр цууралт үүсээгүй</p>
+            </div>
+            <div class="recommend">
+              <div class="section-title">Зөвлөмж</div>
+<ul>
+  <li>Цууралт үүссэн хэсгүүдэд ажиллах бол 10м зайд буулгалт авч Дозероор түрж тэлэлтийг хийнэ.</li>
+  <li>Ирмэг дагуу үүссэн цууралт болон геотехникийн аюулуудад ямар нэгэн хариу арга хэмжээг авсан тохиолдолд фото зургаар баримтжуулан мэйл-р геотехникийн инженерт мэдэгдэнэ үү.</li>
+</ul>
+</div>
+            <div class="slides">
+              <div class="slide r4"><img src="4.1.JPG"></div>
+              <div class="slide r4"><img src="4.2.JPG"></div>
+              <div class="slide r4"><img src="4.3.JPG"></div>
+              <div class="nav prev" onclick="plusSlides(-1,'r4','popup4')">&#10094;</div>
+              <div class="nav next" onclick="plusSlides(1,'r4','popup4')">&#10095;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup 5 -->
+      <div id="popup5" class="popup">
+        <span class="close" onclick="closePopup('popup5')">[x]</span>
+        <h3>Маршрут 5</h3>
+        <div class="cols">
+          <div class="colL"><img src="M5.PNG">
+            <div class="marker" style="left:40%; top:40%;">1</div>
+            <div class="marker" style="left:60%; top:65%;">2</div>
+          </div>
+          <div class="colR">
+            <div class="note-section">
+              <div class="section-title">Тэмдэглэл</div>
+              <p class="ok">✅ Хөмсөг стандартын дагуу хийгдсэн</p>
+              <p class="ok">✅ Хуучин цууралт тэлээгүй</p>
+              <p class="ok">✅ Шинээр цууралт үүсээгүй</p>
+              <p class="notok">❗ Ажиглалтын 4-р цэгт Үйлдвэрийн хаягдал дизайнаас хэтэрсэн</p>
+            </div>
+            <div class="recommend">
+              <div class="section-title">Зөвлөмж</div>
+<ul>
+  <li>Дизайны хэмжээнээс хэтэрч буулгасан үйлдвэрийн хаягдлыг буцаан татаж, төлөвлөсөн дизайнд бариулах.</li>
+</ul>
+</div>
+            <div class="slides">
+              <div class="slide r5"><img src="5.1.JPG"></div>
+              <div class="slide r5"><img src="5.2.JPG"></div>
+              <div class="slide r5"><img src="5.3.JPG"></div>
+              <div class="slide r5"><img src="5.4.JPG"></div>
+              <div class="nav prev" onclick="plusSlides(-1,'r5','popup5')">&#10094;</div>
+              <div class="nav next" onclick="plusSlides(1,'r5','popup5')">&#10095;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup 6 -->
+      <div id="popup6" class="popup">
+        <span class="close" onclick="closePopup('popup6')">[x]</span>
+        <h3>Дотоод овоолго</h3>
+        <div class="cols">
+          <div class="colL"><img src="M6.PNG">
+            <div class="marker" style="left:40%; top:40%;">1</div>
+            <div class="marker" style="left:65%; top:60%;">2</div>
+          </div>
+          <div class="colR">
+            <div class="note-section">
+              <div class="section-title">Тэмдэглэл</div>
+              <p class="ok">✅ Хөмсөг стандартын дагуу хийгдсэн</p>
+              <p class="ok">✅ Хуучин цууралт тэлээгүй</p>
+              <p class="ok">✅ Шинээр цууралт үүсээгүй</p>
+            </div>
+            <div class="recommend">
+              <div class="section-title">Зөвлөмж</div>
+<ul>
+  <li>Цууралт үүссэн хэсгүүдэд ажиллах бол 10м зайд буулгалт авч Дозероор түрж тэлэлтийг хийнэ.</li>
+  <li>Ирмэг дагуу үүссэн цууралт болон геотехникийн аюулуудад ямар нэгэн хариу арга хэмжээг авсан тохиолдолд фото зургаар баримтжуулан мэйл-р геотехникийн инженерт мэдэгдэнэ үү.</li>
+</ul>
+</div>>
+            <div class="slides">
+              <div class="slide r6"><img src="6.1.JPG"></div>
+              <div class="slide r6"><img src="6.2.JPG"></div>
+              <div class="slide r6"><img src="6.3.JPG"></div>
+              <div class="slide r6"><img src="6.4.JPG"></div>
+              <div class="nav prev" onclick="plusSlides(-1,'r6','popup6')">&#10094;</div>
+              <div class="nav next" onclick="plusSlides(1,'r6','popup6')">&#10095;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup 7 -->
+      <div id="popup7" class="popup">
+        <span class="close" onclick="closePopup('popup7')">[x]</span>
+        <h3>Нүүрсний овоолго</h3>
+        <div class="cols">
+          <div class="colL"><img src="M7.PNG">
+            <div class="marker" style="left:45%; top:30%;">1</div>
+            <div class="marker" style="left:60%; top:60%;">2</div>
+          </div>
+          <div class="colR">
+            <div class="note-section">
+              <div class="section-title">Тэмдэглэл</div>
+              <p class="ok">✅ Хөмсөг стандартын дагуу хийгдсэн</p>
+              <p class="ok">✅ Хуучин цууралт тэлээгүй</p>
+              <p class="ok">✅ Шинээр цууралт үүсээгүй</p>
+              <p class="notok">❗ Ажиглалтын 4-р цэгт (S17) эгц босоо овоолго ачилтаар үүссэн байна</p>
+            </div>
+            <div class="recommend">
+              <div class="section-title">Зөвлөмж</div>
+<ul>
+  <li>Эгц босоо, дээд хэсэгтээ унах эрсдэлтэй том овортой нүүрстэй, саравч үүссэн овоолго дээр анхаарал болгоомжтой ажиллах.</li>
+</ul>
+</div>
+            <div class="slides">
+              <div class="slide r7"><img src="7.1.JPG"></div>
+              <div class="slide r7"><img src="7.2.JPG"></div>
+              <div class="slide r7"><img src="7.3.JPG"></div>
+              <div class="slide r7"><img src="7.4.JPG"></div>
+              <div class="nav prev" onclick="plusSlides(-1,'r7','popup7')">&#10094;</div>
+              <div class="nav next" onclick="plusSlides(1,'r7','popup7')">&#10095;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
